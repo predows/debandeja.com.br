@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/lib/customSupabaseClient';
 
 const restaurantSchema = z.object({
   name: z.string().min(2, "Nome do restaurante é obrigatório."),
@@ -20,17 +21,33 @@ export const RestaurantSignUpForm = ({ onSignUp }) => {
   });
   const { toast } = useToast();
 
-  const onSubmit = (data) => {
-    const restaurants = JSON.parse(localStorage.getItem('restaurants')) || [];
-    const newUser = { id: restaurants.length + 1, ...data, type: 'restaurant' };
-    restaurants.push(newUser);
-    localStorage.setItem('restaurants', JSON.stringify(restaurants));
-    
-    toast({
-      title: "✅ Cadastro realizado com sucesso!",
-      description: `Bem-vindo, ${data.name}!`,
+  const onSubmit = async (data) => {
+    const { name, email, location, password } = data;
+
+    const { data: signUpData, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name,
+          location,
+          type: 'restaurant',
+        },
+      },
     });
-    onSignUp(newUser);
+
+    if (error) {
+      toast({
+        title: "❌ Erro ao cadastrar",
+        description: error.message,
+      });
+    } else {
+      toast({
+        title: "✅ Cadastro realizado com sucesso!",
+        description: `Bem-vindo, ${name}!`,
+      });
+      onSignUp(signUpData.user);
+    }
   };
 
   return (
@@ -40,7 +57,7 @@ export const RestaurantSignUpForm = ({ onSignUp }) => {
         <Input id="name" {...register("name")} />
         {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
       </div>
-       <div className="space-y-2">
+      <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
         <Input id="email" type="email" {...register("email")} />
         {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
