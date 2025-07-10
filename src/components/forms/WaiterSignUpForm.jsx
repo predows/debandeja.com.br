@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { supabase } from '@/lib/customSupabaseClient';
 
 const waiterSchema = z.object({
   name: z.string().min(2, "Nome é obrigatório."),
@@ -23,25 +24,34 @@ export const WaiterSignUpForm = ({ onSignUp }) => {
   });
   const { toast } = useToast();
 
-  const onSubmit = (data) => {
-    const waiters = JSON.parse(localStorage.getItem('waiters')) || [];
-    const newUser = { 
-      id: waiters.length + 1, 
-      ...data,
-      specialties: data.specialties.split(',').map(s => s.trim()),
-      rating: (Math.random() * (5 - 4.5) + 4.5).toFixed(1),
-      availability: 'Disponível hoje',
-      location: 'Centro, São Paulo', // Mock location
-      type: 'waiter'
-    };
-    waiters.push(newUser);
-    localStorage.setItem('waiters', JSON.stringify(waiters));
+  const onSubmit = async (data) => {
+    const { email, password, name, experience, specialties } = data;
 
-    toast({
-      title: "✅ Cadastro realizado com sucesso!",
-      description: `Bem-vindo, ${data.name}!`,
+    const { data: signUpData, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name,
+          experience,
+          specialties: specialties.split(',').map(s => s.trim()),
+          rating: (Math.random() * (5 - 4.5) + 4.5).toFixed(1),
+          availability: 'Disponível hoje',
+          location: 'Centro, São Paulo',
+          type: 'waiter',
+        },
+      },
     });
-    onSignUp(newUser);
+
+    if (error) {
+      toast({ title: "Erro ao cadastrar", description: error.message });
+    } else {
+      toast({
+        title: "✅ Cadastro realizado com sucesso!",
+        description: `Bem-vindo, ${name}!`,
+      });
+      onSignUp(signUpData.user);
+    }
   };
 
   return (
@@ -58,7 +68,7 @@ export const WaiterSignUpForm = ({ onSignUp }) => {
       </div>
       <div className="space-y-2">
         <Label htmlFor="experience">Anos de Experiência</Label>
-         <Select onValueChange={(value) => setValue('experience', value)} value={watch('experience')}>
+        <Select onValueChange={(value) => setValue('experience', value)} value={watch('experience')}>
           <SelectTrigger id="experience">
             <SelectValue placeholder="Selecione seus anos de experiência" />
           </SelectTrigger>
